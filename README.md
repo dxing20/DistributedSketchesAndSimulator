@@ -22,6 +22,7 @@ Build cpp and run main
 ```
 ./scripts/makerun.sh -g "<distribution>:<args>"
 ```
+
 | Distribution | Args | Example |
 | ------ | ------ | ------ |
 | zipf | \<seed\>:\<alpha\>:\<N\>:\<Size\> | `./scripts/makerun.sh -g "zipf:1:0.8:10000:10000"` |
