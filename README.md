@@ -27,6 +27,16 @@ Build cpp and run main
 | ------ | ------ | ------ |
 | zipf | \<seed\>:\<alpha\>:\<N\>:\<Size\> | `./scripts/makerun.sh -g "zipf:1:0.8:10000:10000"` |
 
+
+This will generate 4 files:
+| Location | File Type | Description |
+| ------ | ------ | ------ |
+| `trace/<distribution>_stream/*.bin` | binary | consecutive uint32 random values from the distribution. |
+| `trace/<distribution>_stream/*.txt` | text | aggregated frequency of the random values in human readable form. |
+| `trace/*.bin` | binary | consecutive 13 byte random values mapped from the random value stream. |
+| `trace/*.txt` | text | aggregated frequency of flows by interpreting 13 byte random values as (srcip 4b, dstip 4b, srcport 2b, dstport 2b, prot 1b) tuple. |
+
+
 ### Running Simulation
 
 ```
