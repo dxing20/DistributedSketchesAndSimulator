@@ -41,7 +41,7 @@ const char* header =
 "=====================================================\n"
 "   Distributed Sketch and Network Switch Simulator\n"
 "=====================================================\n"
-"   Usage: \n\t\t[-g \"<distribution>:<args>\"] \n\t\t-s [trace_file]\n"
+"   Usage: \n\t\t[-g \"<distribution>:<args>\"] \n\t\t[-s <trace_file>]\n"
 "-----------------------------------------------------\n";
 
 int main(int argc, char *argv[]) {

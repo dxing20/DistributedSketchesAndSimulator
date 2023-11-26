@@ -1,5 +1,7 @@
 Run the container.sh to start dev env.
+`bash scripts/container.sh`
 Run makerun.sh to build and run main.cpp.
+
 
 To generate 5-tuple trace from zipf:
 `./scripts/makerun.sh -g "zipf:1:0.8:10000:10000"`
