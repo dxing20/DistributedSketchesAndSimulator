@@ -24,7 +24,7 @@ Build cpp and run main
 ```
 | Distribution | Args | Example |
 | ------ | ------ | ------ |
-| zipf | <seed>:<alpha>:<N>:<Size> | `./scripts/makerun.sh -g "zipf:1:0.8:10000:10000"` |
+| zipf | \<seed\>:\<alpha\>:\<N\>:\<Size\> | `./scripts/makerun.sh -g "zipf:1:0.8:10000:10000"` |
 
 ### Running Simulation
 
