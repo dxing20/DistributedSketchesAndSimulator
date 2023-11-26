@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "../utils/debug_util.hpp"
 #include "../utils/Frequency.hpp"
+#include "../utils/Seeds.hpp"
 
 const TopologyDefinition FatTree20 = TopologyDefinition(
     std::vector<std::vector<int>> {
@@ -211,8 +212,8 @@ void Dataplane::flowToSwitchIdx(const void* flow, int* srcSwitch, int* dstSwitch
     uint32_t dstIP;
     std::memcpy(&srcIP, (unsigned char*)flow, 4);
     std::memcpy(&dstIP, (unsigned char*)flow + 4, 4);
-    *srcSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&srcIP, 4, 1) % this->edgeSwitchIds.size()];
-    *dstSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&dstIP, 4, 1) % this->edgeSwitchIds.size()];
+    *srcSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&srcIP, 4, IP_TO_EDGESWITCH_IDX_HASH_SEED) % this->edgeSwitchIds.size()];
+    *dstSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&dstIP, 4, IP_TO_EDGESWITCH_IDX_HASH_SEED) % this->edgeSwitchIds.size()];
 }
 
 void Dataplane::getRoute(int srcSwitch, int dstSwitch, const void* flow, std::vector<int>* route){
@@ -237,7 +238,7 @@ void Dataplane::getRoute(int srcSwitch, int dstSwitch, const void* flow, std::ve
         }else if (this->next[cur][dstSwitch].size() == 1){
             cur = this->next[cur][dstSwitch][0];
         }else{
-            uint32_t seed = 1;
+            uint32_t seed = ECMP_NEXT_HOP_HASH_SEED;
             int nextIdx = SpookyHash::Hash32(flow, 13, seed) % this->next[cur][dstSwitch].size();
             cur = this->next[cur][dstSwitch][nextIdx];
         }

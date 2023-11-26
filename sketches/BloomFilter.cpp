@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include "../utils/Seeds.hpp"
 #include "../utils/SpookyV2.hpp"
 
 #define SET_BIT(ptr, bitIdx) \
@@ -25,7 +26,7 @@ BloomFilter::BloomFilter(void* _args) {
     int optimalHashCount = getOptimalHashFunctionCount(this->memsize);
     assert (optimalHashCount > 0);
     for(int i = 0; i < optimalHashCount; i++){
-        this->hashSeeds.push_back(SpookyHash::Hash32(&lastSeed, 4, 1));
+        this->hashSeeds.push_back(SpookyHash::Hash32(&lastSeed, 4, BLOOM_FILTER_HASH_CHAIN_HASH_SEED));
         lastSeed = this->hashSeeds.back();
     }
     std::memset(this->mem, 0, this->memsize);
