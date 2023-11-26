@@ -2,6 +2,7 @@
 #include <cassert>
 #include "../utils/TraceReader.hpp"
 #include <climits>
+#include <algorithm>
 #include "../utils/debug_util.hpp"
 #include "../utils/Frequency.hpp"
 
@@ -141,64 +142,105 @@ void Dataplane::runSim(const char* trace) {
     std::unordered_map<std::string, int> freqMap;
     ip5FreqMap(trace, &freqMap);
     fprintf(stdout, "Simulating flows...\n");
-    uint32 seed = 1;
-    unsigned char* src = (unsigned char*) malloc(6);
-    unsigned char* dst = (unsigned char*) malloc(6);
-    unsigned char* prot = (unsigned char*) malloc(1);
-    int32_t edgeSwitchSrc, edgeSwitchDst;
+    int32_t srcSwitch, dstSwitch;
     size_t edgeSwitchCount = this->edgeSwitchIds.size();
     assert(edgeSwitchCount > 0);
 
     for (auto& pair : freqMap) {
         const char* temp5 = pair.first.c_str();
-        std::memcpy(src, temp5, 6);
-        std::memcpy(dst, temp5 + 6, 6);
-        std::memcpy(prot, temp5 + 12, 1);
         int freq = pair.second;
-
-        // indices of edgeswitchids
-        edgeSwitchSrc = SpookyHash::Hash32(src, 4, seed) % edgeSwitchCount;
-        edgeSwitchDst = SpookyHash::Hash32(dst, 4, seed) % edgeSwitchCount;
-
-        this->run_path(this->edgeSwitchIds[edgeSwitchSrc], this->edgeSwitchIds[edgeSwitchDst], freq, temp5);
+        // indices of edgeswitchidsv
+        flowToSwitchIdx(temp5, &srcSwitch, &dstSwitch);
+        this->run_path(srcSwitch, dstSwitch, freq, temp5);
     }
-
-    free(src);
-    free(dst);
 }
 
 void Dataplane::run_path(int srcSwitchId, int dstSwitchId, size_t count, const char* flow){
-    // the number of possible next hops
+    /*
+    * srcSwitchId: index of the source switch
+    * dstSwitchId: index of the destination switch
+    * count: number of packets to simulate
+    * flow: 13 bytes (src: 4 bytes, dst: 4 bytes, src port: 2 bytes, dst port: 2 bytes, protocol: 1 byte)
+    * 
+    * Given a pair of source and destination switch indices, simulate count packets from src to dst using
+    * ECMP on flow
+    */
+
     DEBUG_EXEC(DebugType::ROUTING, {
-       std::string flowStr = convertToFlow((unsigned char*)flow);
+        std::string flowStr = convertToFlow((unsigned char*)flow);
         DEBUG_PRINTF(DebugType::ROUTING, ">> %s : srcSwitchId: %d, dstSwitchId: %d, count: %ld\n", flowStr.c_str(), srcSwitchId+1, dstSwitchId+1, count);
     });
-    size_t possibleNextNum;
-    int cur = srcSwitchId;
-    int nextIdx;
-    uint32 seed = 1;
 
-    // hypervisor no switch
-    // if (srcSwitchId == dstSwitchId){
+    std::vector<int> route = std::vector<int>();
+    this->getRoute(srcSwitchId, dstSwitchId, flow, &route);
+
+    // Uncomment this to not simulate hypervisor on same node, bypassing sketch
+    // if (route.size() == 1){
     //     return;
     // }
 
-    this->switches[cur]->process(flow, count);
+    for (size_t i = 0; i < route.size(); i++) {
+        DEBUG_PRINTF(DebugType::ROUTING, "  hop %ld: %d(idx)\n", i+1, route[i]+1);
+        this->switches[route[i]]->process(flow, count);
+    }
+}
 
-    while(cur != dstSwitchId){
-        possibleNextNum = this->next[cur][dstSwitchId].size();
-        DEBUG_PRINTF(DebugType::ROUTING, "cur: %d, dst: %d, number of available options: %ld\n", cur+1, dstSwitchId+1, possibleNextNum);
-        if (possibleNextNum == 0){
-            fprintf(stderr, "Failed to find hops for flow: %d -> %d, cur=%d", srcSwitchId+1, dstSwitchId+1, cur+1);
+void Dataplane::queryController(void* arg, const void* flow) {
+    /*
+    * arg: argument to pass to the controller
+    * flow: 13 bytes (src: 4 bytes, dst: 4 bytes, src port: 2 bytes, dst port: 2 bytes, protocol: 1 byte)
+    *
+    * Given a flow, query the controller with the route of the packet.
+    */
+    int srcSwitch, dstSwitch;
+    this->flowToSwitchIdx(flow, &srcSwitch, &dstSwitch);
+    std::vector<int> route = std::vector<int>();
+    this->getRoute(srcSwitch, dstSwitch, flow, &route);
+    this->controller->query(arg, &route);
+}
+
+void Dataplane::flowToSwitchIdx(const void* flow, int* srcSwitch, int* dstSwitch){
+    /*
+    * flow: 13 bytes (src: 4 bytes, dst: 4 bytes, src port: 2 bytes, dst port: 2 bytes, protocol: 1 byte)
+    * src: 4 bytes
+    * dst: 4 bytes
+    * 
+    * Maps src and dst ips to a pair of switch index
+    */
+    uint32_t srcIP;
+    uint32_t dstIP;
+    std::memcpy(&srcIP, (unsigned char*)flow, 4);
+    std::memcpy(&dstIP, (unsigned char*)flow + 4, 4);
+    *srcSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&srcIP, 4, 1) % this->edgeSwitchIds.size()];
+    *dstSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&dstIP, 4, 1) % this->edgeSwitchIds.size()];
+}
+
+void Dataplane::getRoute(int srcSwitch, int dstSwitch, const void* flow, std::vector<int>* route){
+    /*
+    * srcSwitch: index of the source switch
+    * dstSwitch: index of the destination switch
+    * flow: 13 bytes (src: 4 bytes, dst: 4 bytes, src port: 2 bytes, dst port: 2 bytes, protocol: 1 byte)
+    * route: a vector of switch indices
+    * 
+    * Given a pair of source and destination switch indices, get the route from src to dst using
+    * ECMP on flow
+    */
+    int cur = srcSwitch;
+    route->push_back(cur);
+    if (cur == dstSwitch){
+        return;
+    }
+    do {
+        if (this->next[cur][dstSwitch].size() == 0){
+            fprintf(stderr, "Failed to find hops for flow: %d -> %d, cur=%d", srcSwitch+1, dstSwitch+1, cur+1);
             exit(EXIT_FAILURE);
-        }else if (possibleNextNum == 1){
-            DEBUG_PRINTF(DebugType::ROUTING, "\tselected only option: %d\n", this->next[cur][dstSwitchId][0]+1);
-            cur = this->next[cur][dstSwitchId][0];
+        }else if (this->next[cur][dstSwitch].size() == 1){
+            cur = this->next[cur][dstSwitch][0];
         }else{
-            nextIdx = SpookyHash::Hash32(flow, 13, seed) % possibleNextNum;
-            DEBUG_PRINTF(DebugType::ROUTING, "\tselected: %d\n", this->next[cur][dstSwitchId][nextIdx]+1);
-            cur = this->next[cur][dstSwitchId][nextIdx];
+            uint32_t seed = 1;
+            int nextIdx = SpookyHash::Hash32(flow, 13, seed) % this->next[cur][dstSwitch].size();
+            cur = this->next[cur][dstSwitch][nextIdx];
         }
-        this->switches[cur]->process(flow, count);
-    };
+        route->push_back(cur);
+    }while(cur != dstSwitch);
 }

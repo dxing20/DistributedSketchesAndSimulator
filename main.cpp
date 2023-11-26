@@ -3,6 +3,7 @@
 #include "utils/GenZipf.hpp"
 #include "utils/Frequency.hpp"
 #include "sketches/BloomFilter.hpp"
+#include "utils/Evaluation.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,7 +41,8 @@ const char* header =
 "=====================================================\n"
 "   Distributed Sketch and Network Switch Simulator\n"
 "=====================================================\n"
-"   Usage: \n\t\t[-g \"<distribution>:<args>\"] \n\t\t-s [trace_file]\n";
+"   Usage: \n\t\t[-g \"<distribution>:<args>\"] \n\t\t-s [trace_file]\n"
+"-----------------------------------------------------\n";
 
 int main(int argc, char *argv[]) {
     int opt;
@@ -102,13 +104,10 @@ int main(int argc, char *argv[]) {
 
         dp->runSim(sim_trace);
 
-        size_t i = 0;
-        for (auto& sw : dp->switches) {
-            printf("Switch %ld traffic: %ld\n", i++, sw->traffic);
-        }
-
         fprintf(stdout, "Simulation complete\n");
         
+        BloomFilterEvaluation(sim_trace, dp);
+
         delete dp;
 
         delete controller;

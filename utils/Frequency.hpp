@@ -3,8 +3,8 @@
 
 #include <string>
 
-std::string convertToIPAddress(const unsigned char bytes[4]);
 std::string convertToFlow(const unsigned char bytes[13]);
+std::string convertToIPAddress(const unsigned char bytes[4]);
 void aggregateIP5Freq(const char* filename);
 void aggregateRVFreq(const char* filename);
 

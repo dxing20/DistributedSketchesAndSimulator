@@ -8,7 +8,7 @@ class SketchBase {
     virtual ~SketchBase() {}
 
     virtual void* initialize(void* args) = 0;
-    virtual void* update(void* args) = 0;
+    virtual void* update(const void* args) = 0;
     virtual void* query(void* args) = 0;
     virtual void* merge(void* args) = 0;
     virtual void* construct(void* args) = 0;
@@ -27,7 +27,7 @@ class ControllerBase {
     }
 
     virtual SketchBase* newSketch(unsigned int memsize, void* mem) = 0;
-    virtual void* query(void* args) = 0;
+    virtual void* query(void* args, std::vector<int>* route ) = 0;
 };
 
 #endif // SKETCH_BASE_H

@@ -36,8 +36,11 @@ public:
 
     void runSim(const char* trace);
     void printForwardingTable();
+    void queryController(void* arg, const void* flow);
 
 private:
+    void getRoute(int srcSwitch, int dstSwitch, const void* flow, std::vector<int>* route);
+    void flowToSwitchIdx(const void* flow, int* srcSwitch, int* dstSwitch);
     void floydWarshall(const TopologyDefinition* topo);
     void run_path(int srcSwitch, int dstSwitch, size_t count, const char* flow);
 };
