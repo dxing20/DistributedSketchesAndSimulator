@@ -15,7 +15,7 @@ OBJECTS := $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SOURCES))
 $(BINDIR)/$(TARGET): $(OBJECTS)
 	@echo "Creating bin directory"
 	@mkdir -p $(BINDIR)
-	$(CXX) $(CXXFLAGS) $(OBJECTS) -o $@
+	$(CXX) $(CXXFLAGS) $(OBJECTS) -o $@ -lz -lpcap
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@mkdir -p $(dir $@)

@@ -2,6 +2,7 @@
 #define TOPOLOGY_H
 
 #include <vector>
+#include <unordered_map>
 #include <list>
 #include <cstring>
 #include "../sketches/SketchBase.hpp"
@@ -13,11 +14,13 @@ public:
     std::vector<std::vector<int>> adjMatrix;
     std::vector<int> memsizes;
     std::vector<int> edgeSwitchIds;
+    std::unordered_map<int, int> switchToGroup;
 
-    TopologyDefinition(std::vector<std::vector<int>> adjMatrix, std::vector<int> memsizes, std::vector<int> edgeSwitchIds) {
+    TopologyDefinition(std::vector<std::vector<int>> adjMatrix, std::vector<int> memsizes, std::vector<int> edgeSwitchIds, std::unordered_map<int, int> switchToGroup) {
         this->adjMatrix = adjMatrix;
         this->memsizes = memsizes;
         this->edgeSwitchIds = edgeSwitchIds;
+        this->switchToGroup = switchToGroup;
     }
 };
 
@@ -37,6 +40,7 @@ public:
     void runSim(const char* trace);
     void printForwardingTable();
     void queryController(void* arg, const void* flow);
+    // size_t getRouteLen(const void* flow);
 
 private:
     void getRoute(int srcSwitch, int dstSwitch, const void* flow, std::vector<int>* route);

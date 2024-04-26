@@ -1,5 +1,5 @@
-#ifndef BLOOM_FILTER_H
-#define BLOOM_FILTER_H
+#ifndef BLBF_H
+#define BLBF_H
 
 
 #include "SketchBase.hpp"
@@ -8,24 +8,24 @@
 #include <cmath>
 #include <cassert>
 
-typedef struct BloomFilterArgs{
+typedef struct BLBFArgs{
     void* mem;
     size_t memsize;
     size_t seed;
-}BloomFilterArgs;
+}BLBFArgs;
 
-typedef struct BloomFilterQuery{
+typedef struct BLBFQuery{
     const void* flow;
     unsigned char exists;
-}BloomFilterQuery;
+}BLBFQuery;
 
-class BloomFilter : public SketchBase {
+class BLBF : public SketchBase {
 public:
     void* mem;
     int memsize;
 
-    BloomFilter(void* args);
-    ~BloomFilter();
+    BLBF(void* args);
+    ~BLBF();
     void* initialize(void* args);
     void* update(const void* args);
     void* query(void* args);
@@ -45,12 +45,12 @@ private:
     }
 };
 
-class BloomFilterController : public ControllerBase {
+class BLBFController : public ControllerBase {
   public:
-    BloomFilterController();
-    ~BloomFilterController();
-    BloomFilter* newSketch(unsigned int memsize, void* mem, int group);
+    BLBFController();
+    ~BLBFController();
+    BLBF* newSketch(unsigned int memsize, void* mem, int group);
     void* query(void* args, std::vector<int>* route);
 };
 
-#endif // BLOOM_FILTER_H
+#endif // BLBF

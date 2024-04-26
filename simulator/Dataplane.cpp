@@ -7,6 +7,14 @@
 #include "../utils/Frequency.hpp"
 #include "../utils/Seeds.hpp"
 
+const size_t _KB = 1024;
+const size_t _MB = 1024 * _KB;
+
+#define MB(x) (int)(x * _MB)
+#define KB(x) (int)(x * _KB)
+
+#define a 2
+
 const TopologyDefinition FatTree20 = TopologyDefinition(
     std::vector<std::vector<int>> {
         {0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 
@@ -31,13 +39,34 @@ const TopologyDefinition FatTree20 = TopologyDefinition(
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0}, 
     },
         std::vector<int> {
-        4096, 4096, 4096, 4096, 1024,
-        1024, 1024, 1024, 1024, 1024,
-        1024, 1024, 1024, 1024, 1024,
-        1024, 1024, 1024, 1024, 1024,
+        MB(1*a), MB(1*a), MB(1*a), MB(1*a), 
+        KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), 
+        KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), KB(512*a), 
     },
         std::vector<int> {
         12, 13, 14, 15, 16, 17, 18, 19
+    },
+    std::unordered_map<int, int> { // layers
+        {0, 0},
+        {1, 0},
+        {2, 0},
+        {3, 0},
+        {4, 1},
+        {5, 1},
+        {6, 1},
+        {7, 1},
+        {8, 1},
+        {9, 1},
+        {10, 1},
+        {11, 1},
+        {12, 2},
+        {13, 2},
+        {14, 2},
+        {15, 2},
+        {16, 2},
+        {17, 2},
+        {18, 2},
+        {19, 2},
     }
 );
 
@@ -56,6 +85,15 @@ const TopologyDefinition FatTree7 = TopologyDefinition(
     },
     std::vector<int> {
         3, 4, 5, 6
+    },
+    std::unordered_map<int, int> { // layers
+        {0, 0},
+        {1, 1},
+        {2, 1},
+        {3, 2},
+        {4, 2},
+        {5, 2},
+        {6, 2},
     }
 );
 
@@ -63,10 +101,9 @@ Dataplane::Dataplane(ControllerBase *controller, const TopologyDefinition* topo)
     this->controller = controller;
     this->edgeSwitchIds = topo->edgeSwitchIds;
     for (size_t i = 0; i < topo->adjMatrix.size(); i++) {
-        this->switches.push_back(new NetworkSwitch(controller, topo->memsizes[i]));
+        this->switches.push_back(new NetworkSwitch(controller, topo->memsizes[i], topo->switchToGroup.at(i)));
     }
     this->floydWarshall(topo);
-    
 }
 
 Dataplane::~Dataplane() {
@@ -142,6 +179,9 @@ void Dataplane::runSim(const char* trace) {
     fprintf(stdout, "Reading trace file...\n");
     std::unordered_map<std::string, int> freqMap;
     ip5FreqMap(trace, &freqMap);
+
+    DEBUG_PRINT( DebugType::SIM, "src,dst,freq,length\n");
+
     fprintf(stdout, "Simulating flows...\n");
     int32_t srcSwitch, dstSwitch;
     size_t edgeSwitchCount = this->edgeSwitchIds.size();
@@ -175,6 +215,14 @@ void Dataplane::run_path(int srcSwitchId, int dstSwitchId, size_t count, const c
     std::vector<int> route = std::vector<int>();
     this->getRoute(srcSwitchId, dstSwitchId, flow, &route);
 
+    const char* src = convertToIPAddress((unsigned char*)flow).c_str();
+    const char* dst = convertToIPAddress((unsigned char*)flow + 4).c_str();
+    u_int16_t srcPort, dstPort;
+    std::memcpy(&srcPort, (unsigned char*)flow + 8, 2); 
+    std::memcpy(&dstPort, (unsigned char*)flow + 10, 2);
+
+    DEBUG_PRINTF(DebugType::SIM, "%s:%hu,%s:%hu,%ld,%ld\n", src, srcPort, dst, dstPort, count, route.size());
+
     // Uncomment this to not simulate hypervisor on same node, bypassing sketch
     // if (route.size() == 1){
     //     return;
@@ -182,7 +230,7 @@ void Dataplane::run_path(int srcSwitchId, int dstSwitchId, size_t count, const c
 
     for (size_t i = 0; i < route.size(); i++) {
         DEBUG_PRINTF(DebugType::ROUTING, "  hop %ld: %d(idx)\n", i+1, route[i]+1);
-        this->switches[route[i]]->process(flow, count);
+        this->switches[route[i]]->process(flow, count, route.size(), i);
     }
 }
 
@@ -216,6 +264,14 @@ void Dataplane::flowToSwitchIdx(const void* flow, int* srcSwitch, int* dstSwitch
     *dstSwitch = this->edgeSwitchIds[SpookyHash::Hash32(&dstIP, 4, IP_TO_EDGESWITCH_IDX_HASH_SEED) % this->edgeSwitchIds.size()];
 }
 
+// size_t Dataplane::getRouteLen(const void* flow){
+//     int srcSwitch, dstSwitch;
+//     this->flowToSwitchIdx(flow, &srcSwitch, &dstSwitch);
+//     std::vector<int> route = std::vector<int>();
+//     this->getRoute(srcSwitch, dstSwitch, flow, &route);
+//     return route.size();
+// }
+
 void Dataplane::getRoute(int srcSwitch, int dstSwitch, const void* flow, std::vector<int>* route){
     /*
     * srcSwitch: index of the source switch
@@ -231,6 +287,8 @@ void Dataplane::getRoute(int srcSwitch, int dstSwitch, const void* flow, std::ve
     if (cur == dstSwitch){
         return;
     }
+
+    char ecmp[13+4];
     do {
         if (this->next[cur][dstSwitch].size() == 0){
             fprintf(stderr, "Failed to find hops for flow: %d -> %d, cur=%d", srcSwitch+1, dstSwitch+1, cur+1);
@@ -239,7 +297,9 @@ void Dataplane::getRoute(int srcSwitch, int dstSwitch, const void* flow, std::ve
             cur = this->next[cur][dstSwitch][0];
         }else{
             uint32_t seed = ECMP_NEXT_HOP_HASH_SEED;
-            int nextIdx = SpookyHash::Hash32(flow, 13, seed) % this->next[cur][dstSwitch].size();
+            memcpy(ecmp, flow, 13);
+            memcpy(ecmp+13, &cur, 4);
+            int nextIdx = SpookyHash::Hash32(ecmp, 17, seed) % this->next[cur][dstSwitch].size();
             cur = this->next[cur][dstSwitch][nextIdx];
         }
         route->push_back(cur);

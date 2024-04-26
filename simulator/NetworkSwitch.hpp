@@ -11,12 +11,13 @@ public:
     void* mem; // owns
     int memsize;
     size_t traffic;
+    int group;
 
-    NetworkSwitch(ControllerBase* controller, int memsize);
+    NetworkSwitch(ControllerBase* controller, int memsize, int group);
     ~NetworkSwitch();
 
     // Public interface for processing packets
-    void process(const void* packet, size_t count);
+    void process(const void* packet, size_t count, size_t route_len, size_t cur);
 
 };
 

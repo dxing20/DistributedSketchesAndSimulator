@@ -1,4 +1,4 @@
-#include "BloomFilter.hpp"
+#include "BaseLineBloomFilter.hpp"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -16,8 +16,8 @@
 
 
 
-BloomFilter::BloomFilter(void* _args) {
-    BloomFilterArgs* args = reinterpret_cast<BloomFilterArgs*>(_args);
+BLBF::BLBF(void* _args) {
+    BLBFArgs* args = reinterpret_cast<BLBFArgs*>(_args);
     this->mem = args->mem;
     this->memsize = args->memsize;
     this->hashSeeds = std::vector<uint32_t>();
@@ -32,15 +32,15 @@ BloomFilter::BloomFilter(void* _args) {
     std::memset(this->mem, 0, this->memsize);
 }
 
-BloomFilter::~BloomFilter() {
+BLBF::~BLBF() {
     // EMPTY
 }
 
-void* BloomFilter::initialize(void* args) {
+void* BLBF::initialize(void* args) {
     return NULL;
 }
 
-void* BloomFilter::update(const void* packet) {
+void* BLBF::update(const void* packet) {
     const void* flow = reinterpret_cast<const Packet*>(packet)->packet;
     size_t bitIdx;
     for(auto& seed: this->hashSeeds){
@@ -50,8 +50,8 @@ void* BloomFilter::update(const void* packet) {
     return NULL;
 }
 
-void* BloomFilter::query(void* _args) {
-    BloomFilterQuery* args = reinterpret_cast<BloomFilterQuery*>(_args);
+void* BLBF::query(void* _args) {
+    BLBFQuery* args = reinterpret_cast<BLBFQuery*>(_args);
     size_t bitIdx;
     
     for(auto& seed: this->hashSeeds){
@@ -66,47 +66,46 @@ void* BloomFilter::query(void* _args) {
     return NULL;
 }
 
-void* BloomFilter::merge(void* args) {
+void* BLBF::merge(void* args) {
     // TODO
     return NULL;
 }
 
-void* BloomFilter::construct(void* args) {
+void* BLBF::construct(void* args) {
     // TODO
     return NULL;
 }
 
-void* BloomFilter::compress(void* args) {
+void* BLBF::compress(void* args) {
     // TODO
     return NULL;
 }
 
-BloomFilterController::BloomFilterController() {
+BLBFController::BLBFController() {
     this->sketch = std::vector<SketchBase*>();
 }
 
-BloomFilterController::~BloomFilterController() {
+BLBFController::~BLBFController() {
 }
 
-BloomFilter* BloomFilterController::newSketch(unsigned int memsize, void* mem, int group) {
+BLBF* BLBFController::newSketch(unsigned int memsize, void* mem, int group) {
     // TODO
-    size_t nextIdx = this->sketch.size();
-    BloomFilterArgs args = {
+    BLBFArgs args = {
         .mem = mem,
         .memsize=memsize,
-        .seed=nextIdx
+        .seed=BLBF_HASH_SEED
     };
-    BloomFilter* bf = new BloomFilter((void*)&args);
+    BLBF* bf = new BLBF((void*)&args);
     this->sketch.push_back(bf);
     return bf;
 }
 
-void* BloomFilterController::query(void* args, std::vector<int>* route) {
-    BloomFilterQuery* query = reinterpret_cast<BloomFilterQuery*>(args);
-    for(auto& s: *route){
+void* BLBFController::query(void* args, std::vector<int>* route) {
+    BLBFQuery* query = reinterpret_cast<BLBFQuery*>(args);
+    for(auto& s: this->sketch){
 
-        this->sketch[s]->query(args);
-        if(query->exists == 0){
+        s->query(args);
+        if(query->exists == 1){
             return NULL;
         }
     }

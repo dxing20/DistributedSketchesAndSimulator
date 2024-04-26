@@ -3,7 +3,11 @@
 #include "utils/GenZipf.hpp"
 #include "utils/Frequency.hpp"
 #include "sketches/BloomFilter.hpp"
+#include "sketches/KMVSuperSpreader.hpp"
+#include "sketches/BaseLineBloomFilter.hpp"
 #include "utils/Evaluation.hpp"
+#include "utils/Pcap.hpp"
+#include "utils/Config.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,9 +51,10 @@ const char* header =
 int main(int argc, char *argv[]) {
     int opt;
     std::string genzipfArg;
-    u_int8_t gen;
+    u_int8_t gen = 0, sim = 0, parse_pcap = 0, method=0;
     char* sim_trace;
-    u_int8_t sim;
+    char* pcap_file;
+    char* method_name;
 
     fprintf(stdout, header);
 
@@ -58,7 +63,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    while ((opt = getopt(argc, argv, "g:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "g:s:t:m:")) != -1) {
         switch (opt) {
             case 'g':
                 genzipfArg = std::string(optarg);
@@ -68,8 +73,17 @@ int main(int argc, char *argv[]) {
                 sim = 1;
                 sim_trace = optarg;
                 break;
+            case 't':
+                parse_pcap = 1;
+                pcap_file = optarg;
+                break;
+            case 'm':
+                method = 1;
+                method_name = optarg;
+                break;
             default:
-                fprintf(stderr, "Usage: %s [-g \"<distribution>:<args>\"] -s [trace_file]\n", argv[0]);
+                fprintf(stderr, "Unknown option: %c\n", opt);
+                fprintf(stderr, "Usage: %s [-g \"<distribution>:<args>\"] -s [trace_file] -t [pcap_gz_file]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -95,22 +109,80 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
     }else if (sim){
-        fprintf(stdout, "Initializing Simulator...\n");
-        const TopologyDefinition* topo = &FatTree20;
-        ControllerBase* controller = new BloomFilterController();
-        Dataplane* dp = new Dataplane(controller, topo);
+        if (method == 0){
+            fprintf(stderr, "Please specify a method to simulate\n");
+            exit(EXIT_FAILURE);
+        }
 
-        fprintf(stdout, "Running simulation on trace: %s\n", sim_trace);
+        if (strcmp(method_name, "bloomfilter") == 0){
+            fprintf(stdout, "Initializing Simulator and BF Sketch...\n");
+            const TopologyDefinition* topo = &FatTree20;
+            BloomFilterController* controller = new BloomFilterController();
+            Dataplane* dp = new Dataplane(controller, topo);
 
-        dp->runSim(sim_trace);
+            fprintf(stdout, "Running simulation on trace: %s\n", sim_trace);
 
-        fprintf(stdout, "Simulation complete\n");
-        
-        BloomFilterEvaluation(sim_trace, dp);
+            dp->runSim(sim_trace);
 
-        delete dp;
+            fprintf(stdout, "Simulation complete\n");
+            
+            BloomFilterEvaluation(sim_trace, dp);
 
-        delete controller;
+            delete dp;
+
+            delete controller;
+        }else if (strcmp(method_name, "kmv") == 0){
+            fprintf(stdout, "Initializing Simulator and SuperSpreader Sketch...\n");
+            const TopologyDefinition* topo = &FatTree20;
+            KMVSuperSpreaderController* controller = new KMVSuperSpreaderController();
+            Dataplane* dp = new Dataplane(controller, topo);
+
+            fprintf(stdout, "Running simulation on trace: %s\n", sim_trace);
+
+            dp->runSim(sim_trace);
+
+            fprintf(stdout, "Simulation complete\n");
+            
+            KMVSuperSpreaderEvaluation(sim_trace, dp);
+            
+            delete dp;
+
+            delete controller;
+        }else if (strcmp(method_name, "blbf") == 0){
+            fprintf(stdout, "Initializing Simulator and BLBF Sketch...\n");
+            const TopologyDefinition* topo = &FatTree20;
+            BLBFController* controller = new BLBFController();
+            Dataplane* dp = new Dataplane(controller, topo);
+
+            fprintf(stdout, "Running simulation on trace: %s\n", sim_trace);
+
+            dp->runSim(sim_trace);
+
+            fprintf(stdout, "Simulation complete\n");
+            
+            BloomFilterEvaluation(sim_trace, dp);
+
+            delete dp;
+
+            delete controller;
+        }
+        else{
+            fprintf(stderr, "Method %s is not supported\n", method_name);
+            exit(EXIT_FAILURE);
+        }
+    }else if(parse_pcap){
+        fprintf(stdout, "Parsing trace file into simulator supported binary...\n");
+        processPcapGz(pcap_file);
+        char outfilename[256];
+
+        fprintf(stdout, "Decompression finished\n");
+
+        if (!PARSE_PORT){
+            snprintf(outfilename, sizeof(outfilename), "%s.pcap_np.bin", pcap_file);
+        }else{
+            snprintf(outfilename, sizeof(outfilename), "%s.pcap.bin", pcap_file);
+        }
+        aggregateIP5Freq(outfilename);
     }
 
     return 0;

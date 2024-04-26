@@ -14,6 +14,8 @@
 enum class DebugType {
     ROUTING,
     FORWARDING,
+    SIM,
+    EVAL
 };
 
 class DebugManager {
@@ -22,11 +24,15 @@ public:
     DebugManager() {
         fileMappings[DebugType::ROUTING] = "logs/routing.log";
         fileMappings[DebugType::FORWARDING] = "logs/forwarding.log";
+        fileMappings[DebugType::SIM] = "logs/sim.csv";
+        fileMappings[DebugType::EVAL] = "logs/eval.csv";
         // Initialize more file mappings as needed
 
         // Initialize active debug types as needed !!!!!!here!!!!!! <<<<<<
-        activeDebugTypes.insert(DebugType::ROUTING);
-        activeDebugTypes.insert(DebugType::FORWARDING);
+        // activeDebugTypes.insert(DebugType::ROUTING);
+        // activeDebugTypes.insert(DebugType::FORWARDING);
+        activeDebugTypes.insert(DebugType::SIM);
+        // activeDebugTypes.insert(DebugType::EVAL);
     }
 
     // Destructor: Close all open files

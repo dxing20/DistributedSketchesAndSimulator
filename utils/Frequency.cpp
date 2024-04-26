@@ -17,9 +17,10 @@ std::string convertToIPAddress(const unsigned char bytes[4]) {
     }
     return ss.str();
 }
+
 std::string convertToFlow(const unsigned char bytes[13]) {
     std::stringstream ss;
-    int ip1, ip2;
+    uint ip1, ip2;
     u_int16_t port1, port2;
     u_int8_t protocol;
     std::memcpy(&ip1, bytes, 4);
@@ -37,14 +38,14 @@ void aggregateIP5Freq(const char* filename)
     std::ifstream file(filename, std::ios::binary);
 
     if (!file) {
-        std::cerr << "Cannot access file when aggregating IP5 frequency.\n";
-        return;
+        std::cerr << "Cannot access file when aggregating IP5 frequency.\n" << filename << std::endl;
+        exit(1);
     }
 
     std::unordered_map<std::string, int> freqMap;
     char* ipTuple = (char*) malloc(13);
     while (file.read(reinterpret_cast<char*>(ipTuple), 13)) {
-        std::string ip5(ipTuple, 12);
+        std::string ip5(ipTuple, 13);
         if (freqMap.find(ip5) == freqMap.end()) {
             freqMap[ip5] = 1;
         } else {
@@ -65,9 +66,9 @@ void aggregateIP5Freq(const char* filename)
     std::ofstream out(outputFilename.c_str());
 
     for (auto& pair : pairs) {
-        const char* flowStr = convertToFlow((unsigned char*)pair.first.c_str()).c_str();
+        std::string flowStr = convertToFlow((unsigned char*)pair.first.c_str());
 
-        out << flowStr << " x " << pair.second << std::endl;
+        out << flowStr.c_str() << " x " << pair.second << std::endl;
     }
 
     out.close();
@@ -80,7 +81,7 @@ void aggregateRVFreq(const char* filename)
 
     if (!file) {
         std::cerr << "Cannot access file when aggregating IP5 frequency.\n";
-        return;
+        exit(1);
     }
 
     std::unordered_map<int, int> freqMap;

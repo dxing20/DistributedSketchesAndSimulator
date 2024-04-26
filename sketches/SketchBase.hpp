@@ -3,6 +3,13 @@
 
 #include <vector>
 
+typedef struct Packet {
+    const void* packet;
+    size_t count;
+    size_t route_len;
+    size_t cur;
+} Packet;
+
 class SketchBase {
   public:
     virtual ~SketchBase() {}
@@ -26,7 +33,7 @@ class ControllerBase {
     
     }
 
-    virtual SketchBase* newSketch(unsigned int memsize, void* mem) = 0;
+    virtual SketchBase* newSketch(unsigned int memsize, void* mem, int group) = 0;
     virtual void* query(void* args, std::vector<int>* route ) = 0;
 };
 
